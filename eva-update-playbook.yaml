@@ -16,7 +16,7 @@
       private: no
   tasks:
     - name: Vérification pré-mise à jour - Obtenir la version actuelle du firmware
-      sns_command:
+      stormshield.sns.sns_command:
         appliance: "{{ ansible_host }}"
         port: "{{ ansible_port }}"
         command: "SYSTEM PROPERTY"
@@ -70,7 +70,7 @@
       
 
     - name: Vérification post-mise à jour - Santé de l’EVA
-      sns_command:
+      stormshield.sns.sns_command:
         appliance: "{{ ansible_host }}"
         port: "{{ ansible_port }}"
         command: "SYSTEM PROPERTY"
@@ -112,7 +112,7 @@
 
   handlers:
     - name: Redémarrer si nécessaire
-      sns_command:
+      stormshield.sns.sns_command:
         appliance: "{{ ansible_host }}"
         port: "{{ ansible_port }}"
         command: "SYSTEM REBOOT"

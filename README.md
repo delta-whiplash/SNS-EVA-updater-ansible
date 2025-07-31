@@ -105,3 +105,13 @@ Assurez-vous que le fichier de mise à jour est bien présent dans ce dossier et
 - En cas de problème SSH/API, vérifier les secrets et l’accès réseau.
 
 ---
+## Ansible Stormshield SNS Collection Setup
+
+To use the `stormshield.sns.sns_command` and other modules, ensure the collection and its Python dependency are installed:
+
+```sh
+ansible-galaxy collection install stormshield.sns
+pip install stormshield.sns.sslclient
+```
+
+Refer to the [official documentation](https://github.com/stormshield/ansible-sns-collection) for advanced usage and module details.
