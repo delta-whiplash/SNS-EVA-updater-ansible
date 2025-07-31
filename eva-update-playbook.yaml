@@ -48,23 +48,21 @@
       
 
     - name: Sauvegarder la configuration Stormshield
-      stormshield.sns.sns_backup:
-        appliance: "{{ ansible_host }}"
-        port: "{{ ansible_port }}"
-        backup_file: "{{ backup_file }}"
-        validate_certs: "{{ sns_validate_certs }}"
-        timeout: "{{ sns_timeout }}"
+      import_role:
+        name: stormshield.sns.sns_backup
+      vars:
+        backup_path: "{{ backup_folder | default('./backup') }}"
+        backup: "{{ inventory_hostname }}.na"
+        timestamp_prefix: true
       register: backup_result
       
 
     - name: Mise à jour du firmware
-      stormshield.sns.sns_firmware_update:
-        appliance: "{{ ansible_host }}"
-        port: "{{ ansible_port }}"
+      import_role:
+        name: stormshield.sns.sns_firmware_update
+      vars:
         version: "{{ firmware_version }}"
-        firmware_file: "{{ firmware_file }}"
-        validate_certs: "{{ sns_validate_certs }}"
-        timeout: "{{ sns_firmware_timeout }}"
+        system_clone: false
       register: update_result
       notify: Redémarrer si nécessaire
       
