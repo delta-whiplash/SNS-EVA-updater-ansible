@@ -95,6 +95,15 @@ Assurez-vous que le fichier de mise à jour est bien présent dans ce dossier et
 - Utiliser `no_log: true` pour les tâches sensibles.
 - Changer régulièrement le mot de passe du vault.
 - Ne jamais versionner le mot de passe du vault.
+- **Authentification SSH :**  
+  Par défaut, le playbook utilise l’authentification par mot de passe SSH (nécessite `sshpass` installé sur le poste de contrôle).  
+  Pour une sécurité renforcée, il est recommandé d’utiliser l’authentification par clé SSH et de désactiver l’accès par mot de passe sur les appliances EVA.
+- **Dépendance à sshpass :**  
+  Si vous utilisez l’authentification par mot de passe, assurez-vous que `sshpass` est installé (`sudo apt-get install sshpass`).  
+  Sinon, configurez l’accès par clé SSH dans votre inventaire et sur les appliances cibles.
+- **Gestion des erreurs :**  
+  Le playbook inclut désormais des vérifications conditionnelles pour éviter les erreurs liées à des variables non définies lorsque des tâches échouent (par exemple, extraction de version firmware uniquement si la commande précédente a réussi).  
+  Consultez les logs pour diagnostiquer les erreurs et vérifiez la connectivité SSH/API en cas d’échec.
 
 ---
 
@@ -105,6 +114,7 @@ Assurez-vous que le fichier de mise à jour est bien présent dans ce dossier et
 - En cas de problème SSH/API, vérifier les secrets et l’accès réseau.
 
 ---
+
 ## Ansible Stormshield SNS Collection Setup
 
 To use the `stormshield.sns.sns_command` and other modules, ensure the collection and its Python dependency are installed:

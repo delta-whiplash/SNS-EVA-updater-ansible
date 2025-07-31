@@ -27,6 +27,7 @@
     - name: Extraire la version du firmware avant mise à jour
       set_fact:
         pre_version: "{{ current_state.stdout | regex_search('Firmware version: ([^\\s]+)', '\\1') | default('unknown') }}"
+      when: current_state is defined and current_state.stdout is defined
       
 
     - name: Créer un snapshot VM sur vCenter
@@ -83,6 +84,7 @@
     - name: Extraire la version du firmware après mise à jour
       set_fact:
         post_version: "{{ post_state.stdout | regex_search('Firmware version: ([^\\s]+)', '\\1') | default('unknown') }}"
+      when: post_state is defined and post_state.stdout is defined
       
 
     - name: Valider la mise à jour de version du firmware
@@ -96,15 +98,15 @@
         path: "{{ log_file }}"
         line: |
           Horodatage : {{ ansible_date_time.iso8601 }}
-          État pré-MAJ : {{ current_state.stdout | default('N/A') }}
-          Version pré-MAJ : {{ pre_version }}
-          Snapshot : {{ snapshot_result.changed | ternary('Créé', 'Existant') }} - Nom : {{ snapshot_name }}
-          Sauvegarde : {{ backup_result.changed | ternary('Enregistrée', 'Existante') }} à {{ backup_file }}
-          Mise à jour : {{ update_result.changed | ternary('Appliquée', 'Déjà à jour') }} - Version : {{ firmware_version }}
-          État post-MAJ : {{ post_state.stdout }}
-          Version post-MAJ : {{ post_version }}
-          Statut : {{ 'Succès' if post_state.ret == 100 and post_version == firmware_version else 'Échec - Voir logs' }}
-          Nettoyage snapshot : {{ delete_snapshot | ternary('Supprimé si succès', 'Conservé pour observation - Supprimer manuellement dans 1 semaine si OK') }}
+          État pré-MAJ : {{ current_state.stdout | default('N/A') if current_state is defined and current_state.stdout is defined else 'N/A' }}
+          Version pré-MAJ : {{ pre_version | default('N/A') }}
+          Snapshot : {{ snapshot_result.changed | ternary('Créé', 'Existant') if snapshot_result is defined and snapshot_result.changed is defined else 'N/A' }} - Nom : {{ snapshot_name | default('N/A') }}
+          Sauvegarde : {{ backup_result.changed | ternary('Enregistrée', 'Existante') if backup_result is defined and backup_result.changed is defined else 'N/A' }} à {{ backup_file | default('N/A') }}
+          Mise à jour : {{ update_result.changed | ternary('Appliquée', 'Déjà à jour') if update_result is defined and update_result.changed is defined else 'N/A' }} - Version : {{ firmware_version | default('N/A') }}
+          État post-MAJ : {{ post_state.stdout | default('N/A') if post_state is defined and post_state.stdout is defined else 'N/A' }}
+          Version post-MAJ : {{ post_version | default('N/A') }}
+          Statut : {{ 'Succès' if post_state is defined and post_state.ret is defined and post_state.ret == 100 and post_version is defined and post_version == firmware_version else 'Échec - Voir logs' }}
+          Nettoyage snapshot : {{ delete_snapshot | ternary('Supprimé si succès', 'Conservé pour observation - Supprimer manuellement dans 1 semaine si OK') if delete_snapshot is defined else 'N/A' }}
         create: true
       delegate_to: localhost
 
