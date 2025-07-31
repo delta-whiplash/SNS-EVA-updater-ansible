@@ -1,0 +1,19 @@
+- name: Pre-upgrade health check - Get current firmware version
+  sns_command:
+    appliance: "{{ ansible_host }}"
+    port: "{{ ansible_port }}"
+    command: "SYSTEM PROPERTY"
+  register: current_state
+  ignore_errors: true
+  no_log: true
+
+- name: Post-upgrade health check - EVA health
+  sns_command:
+    appliance: "{{ ansible_host }}"
+    port: "{{ ansible_port }}"
+    command: "SYSTEM PROPERTY"
+  register: post_state
+  until: post_state.ret == 100
+  retries: 5
+  delay: 30
+  no_log: true

@@ -1,0 +1,15 @@
+- name: Delete VM snapshot if upgrade OK and delete_snapshot=true
+  community.vmware.vmware_guest_snapshot:
+    hostname: "{{ hostvars['vcenter_server'].ansible_host }}"
+    port: "{{ hostvars['vcenter_server'].ansible_port }}"
+    username: "{{ hostvars['vcenter_server'].vcenter_username }}"
+    password: "{{ hostvars['vcenter_server'].vcenter_password }}"
+    datacenter: "{{ hostvars['vcenter_server'].vcenter_datacenter }}"
+    name: "{{ vcenter_vm_name }}"
+    state: absent
+    snapshot_name: "{{ snapshot_name }}"
+  delegate_to: localhost
+  when: post_state.ret == 100 and delete_snapshot | bool
+  no_log: true
+
+# Pour un nettoyage différé, exécutez cette tâche après une période de rétention (ex. via cron ou playbook manuel)

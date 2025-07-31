@@ -1,0 +1,144 @@
+---
+- name: Mise à jour automatisée du firmware Stormshield EVA sur vCenter 7
+  hosts: eva_hosts
+  gather_facts: false
+  vars_files:
+    - secrets.yaml
+  vars:
+    snapshot_name: "Pre-MAJ-{{ firmware_version }}-{{ ansible_date_time.iso8601 }}"
+    backup_file: "{{ backup_folder }}/{{ inventory_hostname }}_{{ firmware_version }}_{{ ansible_date_time.year }}-{{ '%02d' % ansible_date_time.month }}-{{ '%02d' % ansible_date_time.day }}_{{ '%02d%02d' % (ansible_date_time.hour, ansible_date_time.minute) }}.na"
+    log_file: "{{ log_folder }}/{{ inventory_hostname }}-update-log-{{ ansible_date_time.iso8601 }}.txt"
+    delete_snapshot: "{{ delete_snapshot | default(false) }}"
+    firmware_file: "firmware/{{ firmware_version }}.maj"
+  vars_prompt:
+    - name: "firmware_file"
+      prompt: "Chemin du fichier de mise à jour firmware (ex: firmware/fwupd-4.3.38-SNS-amd64-XL-VM.maj)"
+      private: no
+  tasks:
+    - name: Vérification pré-mise à jour - Obtenir la version actuelle du firmware
+      sns_command:
+        appliance: "{{ ansible_host }}"
+        port: "{{ ansible_port }}"
+        command: "SYSTEM PROPERTY"
+      register: current_state
+      ignore_errors: true
+      
+
+    - name: Extraire la version du firmware avant mise à jour
+      set_fact:
+        pre_version: "{{ current_state.stdout | regex_search('Firmware version: ([^\\s]+)', '\\1') | default('unknown') }}"
+      
+
+    - name: Créer un snapshot VM sur vCenter
+      community.vmware.vmware_guest_snapshot:
+        hostname: "{{ hostvars['vcenter_server'].ansible_host }}"
+        port: "{{ hostvars['vcenter_server'].ansible_port }}"
+        username: "{{ hostvars['vcenter_server'].vcenter_username }}"
+        password: "{{ hostvars['vcenter_server'].vcenter_password }}"
+        datacenter: "{{ hostvars['vcenter_server'].vcenter_datacenter }}"
+        name: "{{ vcenter_vm_name }}"
+        state: present
+        snapshot_name: "{{ snapshot_name }}"
+        description: "Snapshot avant mise à jour firmware {{ firmware_version }} pour retour arrière"
+        folder: "/{{ hostvars['vcenter_server'].vcenter_datacenter }}/vm"
+        validate_certs: "{{ vmware_validate_certs }}"
+        timeout: "{{ vmware_timeout }}"
+      delegate_to: localhost
+      register: snapshot_result
+      
+
+    - name: Sauvegarder la configuration Stormshield
+      stormshield.sns.sns_backup:
+        appliance: "{{ ansible_host }}"
+        port: "{{ ansible_port }}"
+        backup_file: "{{ backup_file }}"
+        validate_certs: "{{ sns_validate_certs }}"
+        timeout: "{{ sns_timeout }}"
+      register: backup_result
+      
+
+    - name: Mise à jour du firmware
+      stormshield.sns.sns_firmware_update:
+        appliance: "{{ ansible_host }}"
+        port: "{{ ansible_port }}"
+        version: "{{ firmware_version }}"
+        firmware_file: "{{ firmware_file }}"
+        validate_certs: "{{ sns_validate_certs }}"
+        timeout: "{{ sns_firmware_timeout }}"
+      register: update_result
+      notify: Redémarrer si nécessaire
+      
+
+    - name: Vérification post-mise à jour - Santé de l’EVA
+      sns_command:
+        appliance: "{{ ansible_host }}"
+        port: "{{ ansible_port }}"
+        command: "SYSTEM PROPERTY"
+        validate_certs: "{{ sns_validate_certs }}"
+        timeout: "{{ sns_timeout }}"
+      register: post_state
+      until: post_state.ret == 100
+      retries: 5
+      delay: 30
+      
+
+    - name: Extraire la version du firmware après mise à jour
+      set_fact:
+        post_version: "{{ post_state.stdout | regex_search('Firmware version: ([^\\s]+)', '\\1') | default('unknown') }}"
+      
+
+    - name: Valider la mise à jour de version du firmware
+      fail:
+        msg: "Échec de la mise à jour : la version du firmware n’a pas changé (avant : {{ pre_version }}, après : {{ post_version }}, attendu : {{ firmware_version }})"
+      when: post_version != firmware_version
+      no_log: false
+
+    - name: Journaliser les actions
+      lineinfile:
+        path: "{{ log_file }}"
+        line: |
+          Horodatage : {{ ansible_date_time.iso8601 }}
+          État pré-MAJ : {{ current_state.stdout | default('N/A') }}
+          Version pré-MAJ : {{ pre_version }}
+          Snapshot : {{ snapshot_result.changed | ternary('Créé', 'Existant') }} - Nom : {{ snapshot_name }}
+          Sauvegarde : {{ backup_result.changed | ternary('Enregistrée', 'Existante') }} à {{ backup_file }}
+          Mise à jour : {{ update_result.changed | ternary('Appliquée', 'Déjà à jour') }} - Version : {{ firmware_version }}
+          État post-MAJ : {{ post_state.stdout }}
+          Version post-MAJ : {{ post_version }}
+          Statut : {{ 'Succès' if post_state.ret == 100 and post_version == firmware_version else 'Échec - Voir logs' }}
+          Nettoyage snapshot : {{ delete_snapshot | ternary('Supprimé si succès', 'Conservé pour observation - Supprimer manuellement dans 1 semaine si OK') }}
+        create: true
+      delegate_to: localhost
+
+  handlers:
+    - name: Redémarrer si nécessaire
+      sns_command:
+        appliance: "{{ ansible_host }}"
+        port: "{{ ansible_port }}"
+        command: "SYSTEM REBOOT"
+        validate_certs: "{{ sns_validate_certs }}"
+        timeout: "{{ sns_timeout }}"
+      when: update_result.need_reboot | default(false)
+      
+
+- name: Nettoyage post-succès optionnel
+  hosts: eva_hosts
+  gather_facts: false
+  vars_files:
+    - secrets.yaml
+  tasks:
+    - name: Supprimer le snapshot si la mise à jour est OK et delete_snapshot=true
+      community.vmware.vmware_guest_snapshot:
+        hostname: "{{ hostvars['vcenter_server'].ansible_host }}"
+        port: "{{ hostvars['vcenter_server'].ansible_port }}"
+        username: "{{ hostvars['vcenter_server'].vcenter_username }}"
+        password: "{{ hostvars['vcenter_server'].vcenter_password }}"
+        datacenter: "{{ hostvars['vcenter_server'].vcenter_datacenter }}"
+        name: "{{ vcenter_vm_name }}"
+        state: absent
+        snapshot_name: "{{ snapshot_name }}"
+        validate_certs: "{{ vmware_validate_certs }}"
+        timeout: "{{ vmware_timeout }}"
+      delegate_to: localhost
+      when: post_state.ret == 100 and delete_snapshot | bool
+      

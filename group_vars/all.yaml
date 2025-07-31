@@ -1,0 +1,11 @@
+firmware_version: "5.0.1"
+backup_folder: "/backups"
+delete_snapshot: false
+log_folder: "/logs"
+
+sns_validate_certs: false
+sns_timeout: 120
+sns_firmware_timeout: 300
+
+vmware_validate_certs: false
+vmware_timeout: 120

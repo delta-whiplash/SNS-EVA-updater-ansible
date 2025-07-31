@@ -1,0 +1,18 @@
+eva_hosts:
+  hosts:
+    eva1:
+      ansible_host: "{{ eva1_ip }}"
+      ansible_port: "{{ eva1_port }}"
+      ansible_user: "{{ eva_admin_user }}"
+      ansible_password: "{{ eva_admin_password }}"
+      vcenter_vm_name: EVA1_VM
+      # Ajouter d'autres hôtes EVA si nécessaire
+vcenter:
+  hosts:
+    vcenter_server:
+      ansible_host: "{{ vcenter_ip }}"
+      ansible_port: "{{ vcenter_port }}"
+      vcenter_username: "{{ vcenter_username }}"
+      vcenter_password: "{{ vcenter_password }}"
+      # Nom de votre datacenter vCenter (requis par les modules Ansible VMware, même si vous n’en avez qu’un seul)
+      vcenter_datacenter: DC1
